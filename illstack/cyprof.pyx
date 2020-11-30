@@ -74,7 +74,7 @@ def cull_and_center(np.ndarray posp, np.ndarray vals, np.ndarray weights,
     else:
         r = np.sqrt(xp**2+yp**2+zp**2)
         dm = [r < search_radius * rh]
-
+    dm=np.array(dm[0])
     xp=xp[dm];yp=yp[dm];zp=zp[dm];vals=vals[dm];weights=weights[dm]
     posp=np.column_stack([xp,yp,zp])
 
@@ -167,7 +167,7 @@ def stackonhalostile(
 
     x1=0.; x2=box; y1=0.; y2=box; z1=0.; z2=box;
     dx=(x2-x1)/ntile; dy=(y2-y1)/ntile; dz=(z2-z1)/ntile;
-
+    #this stuff is all important for splitting into the tiles
     x1h=it*dx; x2h=(it+1)*dx
     y1h=jt*dy; y2h=(jt+1)*dy
     z1h=kt*dz; z2h=(kt+1)*dz
@@ -181,8 +181,11 @@ def stackonhalostile(
     if mass_kind =='stellar':
         dmh = [(xh>x1h) & (xh<x2h) & (yh>y1h) & (yh<y2h) & (zh>z1h) & (zh<z2h) & (mstari>mhmin) & (mstari<mhmax)]
     elif mass_kind =='halo':
-        dmh = [(xh>x1h) & (xh<x2h) & (yh>y1h) & (yh<y2h) & (zh>z1h) & (zh<z2h) & (mhi>mhmin) & (mhi<mhmax)]
+        dmh = [(xh>x1h) & (xh<x2h) & (yh>y1h) & (yh<y2h) & (zh>z1h) & (zh<z2h) & (mhi>mhmin) & (mhi<mhmax)] #this gives boolean array, so same size as mh
 
+    dmh=np.array(dmh[0])
+    dmp=np.array(dmp[0])
+    
     xp=xp[dmp]; yp=yp[dmp]; zp=zp[dmp]
     xh=xh[dmh]; yh=yh[dmh]; zh=zh[dmh] 
 
@@ -190,8 +193,7 @@ def stackonhalostile(
     posh  = np.column_stack([xh,yh,zh])
 
     vals          = valsi[dmp]
-
-    mh  	      = mhi[dmh]
+    mh=mhi[dmh]
     rh            = rhi[dmh] 
     GroupFirstSub = GroupFirstSubi[dmh] 
     sfr           = sfri[dmh]
@@ -237,7 +239,7 @@ def stackonhalostile(
     pnum = np.empty((0),float)
 
     nhalos=np.shape(xh)[0]
-    if params.rank==0:
+    if params.rank==0: #when MPI isn't initialized
         print it*ntile**2+jt*ntile+kt+1,'of',ntile**3,'done, nhalos =',nhalos
     
     if nhalos == 0:

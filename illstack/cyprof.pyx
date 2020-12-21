@@ -47,12 +47,13 @@ def add_ghost_particles(posc,vals,maxrad):
     for i in (-1,0,1):
         for j in (-1,0,1):
             for k in (-1,0,1):
-                if [i==0 and j==0 and k==0]: 
+                if (i==0 and j==0 and k==0): 
                     continue
                 xp = posc[:,0] + i*box
                 yp = posc[:,1] + j*box
                 zp = posc[:,2] + k*box
                 dm = [(xp>x1) & (xp<x2) & (yp>y1) & (yp<y2) & (zp>z1) & (zp<z2)]
+		dm=np.array(dm[0])
                 posc_new = np.column_stack([xp[dm], yp[dm],zp[dm]]); vals_new = vals[dm]
                 posc_ghosts = np.concatenate((posc_ghosts,posc_new))
                 vals_ghosts = np.concatenate((vals_ghosts,vals_new))
@@ -253,7 +254,7 @@ def stackonhalostile(
 #    posp, vals, weights = precull(posp,vals,weights,posh,rh)
 
     for ih in np.arange(nhalos):    	
-        pospc, valsc, weightsc = cull_and_center(posp,vals,weights,posh[ih],rh[ih],scaled_radius=scaled_radius)
+        pospc, valsc, weightsc = cull_and_center(posp,vals,weights,posh[ih],rpmax,scaled_radius=scaled_radius)
         scale=rh[ih]
         pcenc, pvalc, pnumc = CHP.ComputeHaloProfile(pospc,valsc,weightsc,scale,volweight=volweight,scaled_radius=scaled_radius)
         pcen = np.append(pcen,pcenc)

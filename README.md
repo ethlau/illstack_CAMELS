@@ -19,3 +19,4 @@ Foundation scripts-
 Example scripts-
 /home/jovyan/home/illstack/CAMELS_example/
 
+test

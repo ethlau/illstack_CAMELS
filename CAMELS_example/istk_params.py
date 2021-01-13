@@ -1,6 +1,6 @@
 basepath = '/home/jovyan/Simulations/IllustrisTNG/1P_22/'
 serial      = True
-search_radius = 5 #20 for full, 5 for testing
+search_radius = 20 #20 for full, 5 for testing
 lims        = [10e-2,10e4]  #[0.01,10] scaled
 bins        = 25
 mass_low    = 10**10.0  #actually 10^10/h

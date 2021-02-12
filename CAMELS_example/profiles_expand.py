@@ -15,9 +15,13 @@ prof2 = str(sys.argv[2])
 prof3 = str(sys.argv[3])
 prof4 = str(sys.argv[4])
 prof5 = str(sys.argv[5])
-snap_num= int(sys.argv[6])
-sim=str(sys.argv[7])
-simulation=str(sys.argv[8])
+prof6 = str(sys.argv[6])
+prof7 = str(sys.argv[7])
+prof8 = str(sys.argv[8])
+prof9 = str(sys.argv[9])
+snap_num= int(sys.argv[10])
+sim=str(sys.argv[11])
+simulation=str(sys.argv[12])
 
 print("Simulation:",simulation)
 print("Snapshot:",snap_num)
@@ -43,65 +47,132 @@ omegab=0.0486
 omegadm =omegam-omegab
 
 #prof=[prof1,prof2,prof3,prof4,prof5]
-prof=[prof1,prof2,prof3]
+#prof=[prof1,prof2,prof3]
+prof=[prof1,prof2,prof3,prof4,prof5,prof6,prof7,prof8,prof9]
 
 volweight=[]
 vals=[]
+weights=[]
 for p in prof:
     if p=='gasdens':
-        print("Completing profiles for gasdens")
+        print("Computing values for gasdens")
         part_type='gas'
         field_list = ['Coordinates','Masses']
         gas_particles = istk.io.getparticles(snap_num,part_type,field_list)
         posp = gas_particles['Coordinates'] #position, base unit ckpc/h 
-        vals.append(gas_particles['Masses'])   #units 1e10 Msol/h
+        val=gas_particles['Masses']
+        vals.append(val)   #units 1e10 Msol/h
         volweight.append(True)
-    elif p=='dmdens':
-        print("Completing profiles for dmdens")
-        part_type='dm'
-        # HARD CODED BOX SIZE 2.5e4 kpc/h
-        part_massf=2.775e2*omegadm*(2.5e4)**3/1e10 # particle mass in 1e10 Msun/h
-        field_list = ['Coordinates'] #base unit ckpc/h
-        posp = istk.io.getparticles(snap_num,part_type,field_list)
-        vals = posp[:,0]*0 + part_massf / np.shape(posp)[0]
-        print('setting dm particle mass to = ',vals[0]*1e10,'Msun/h')
+        weights.append(1.0+0*val)
     elif p=='gaspth':
-        print("Completing profiles for gaspth")
+        print("Computing values for gaspth")
         part_type='gas'
         field_list = ['Coordinates','Masses','InternalEnergy']
         gas_particles = istk.io.getparticles(snap_num,part_type,field_list)
         posp = gas_particles['Coordinates'] #base unit ckpc/h 
-        vals.append(gas_particles['Masses']*gas_particles['InternalEnergy']*(gamma-1.))#unit 1e10Msol/h*(km/s)**2
+        val=gas_particles['Masses']*gas_particles['InternalEnergy']*(gamma-1.)#unit 1e10Msol/h*(km/s)**2
+        vals.append(val)
         volweight.append(True)
-    elif p=='metals_gmw': #gas mass-weighted metallicity
-        print("Completing profiles for metallicity")
+        weights.append(1.0+0*val)
+    elif p=='metals_uw':
+        print("Computing values for unweighted metallicity (metals_uw)")
         part_type='gas'
-        field_list=['GFM_Metallicity','Masses','Coordinates'] #Metallicity for SIMBA
-        gas_particles=istk.io.getparticles(snap_num,part_type,field_list)
-        posp=gas_particles['Coordinates']
-        vals.append(gas_particles['GFM_Metallicity']*gas_particles['Masses']) #ratio of M_metals/M_tot,gas
+        
+        if sim=='IllustrisTNG':
+            field_list=['GFM_Metallicity','Masses','Coordinates']
+            gas_particles=istk.io.getparticles(snap_num,part_type,field_list)
+            posp=gas_particles['Coordinates']
+            val=gas_particles['GFM_Metallicity'] #ratio
+        elif sim=='SIMBA': 
+            field_list=['Metallicity','Masses','Coordinates']
+            gas_particles=istk.io.getparticles(snap_num,part_type,field_list)
+            posp=gas_particles['Coordinates']
+            val=gas_particles['Metallicity']  
+            val=val[:,0] #total metals fraction, the rest are in order: He,C,N,O,Ne,Mg,Si,S,Ca,Fe
+        vals.append(val)
         volweight.append(False)
+        weights.append(1.0+0*val)
+    elif p=='metals_gmw':
+        print("Computing values for gas-mass-weighted metallicity (metals_gmw)")
+        part_type='gas'
+        if sim=='IllustrisTNG':
+            field_list=['GFM_Metallicity','Masses','Coordinates']
+            gas_particles=istk.io.getparticles(snap_num,part_type,field_list)
+            posp=gas_particles['Coordinates']
+            val=gas_particles['GFM_Metallicity'] #ratio
+        elif sim=='SIMBA': 
+            field_list=['Metallicity','Masses','Coordinates']
+            gas_particles=istk.io.getparticles(snap_num,part_type,field_list)
+            posp=gas_particles['Coordinates']
+            val=gas_particles['Metallicity']  
+            val=val[:,0]
+        vals.append(val)
+        volweight.append(False)
+        weights.append(gas_particles['Masses'])
     elif p=='gasmass': 
         #this is binned mass to multiply metals profile to get M_z instead of ratio
-        print("Completing profiles for gas mass")
+        print("Computing values for unweighted gas mass")
         part_type='gas'
         field_list=['Coordinates','Masses']
         gas_particles=istk.io.getparticles(snap_num,part_type,field_list)
         posp=gas_particles['Coordinates']
-        vals.append(gas_particles['Masses'])
+        val=gas_particles['Masses']
+        vals.append(val)
         volweight.append(False)
-    elif p=='gastemp_gmw': #gmw = gas mass-weighted
-        print("Completing profiles for gas temperature")
+        weights.append(1.0+0*val)
+    elif p=='gastemp_uw':
+        print("Computing values for unweighted gas temperature (gastemp_uw)")
         part_type='gas'
         field_list=['Coordinates','Masses','InternalEnergy','ElectronAbundance']
         gas_particles=istk.io.getparticles(snap_num,part_type,field_list)
         posp=gas_particles['Coordinates']
         mu=(4.*mp/(1.+3.*Xh+4.*Xh*gas_particles['ElectronAbundance'])) #CGS
-        vals.append(gas_particles['InternalEnergy']*mu*(gamma-1.)/kb) #K*(km/cm)^2, mult by 10^10 later
+        val=gas_particles['InternalEnergy']*mu*(gamma-1.)/kb #K*(km/cm)^2, mult by 10^10 later
+        vals.append(val)
         volweight.append(False)
+        weights.append(1.0+0*val)
+    elif p=='gastemp_gmw':
+        print("Computing values for gas-mass-weighted gas temperature (gastemp_gmw)")
+        part_type='gas'
+        field_list=['Coordinates','Masses','InternalEnergy','ElectronAbundance']
+        gas_particles=istk.io.getparticles(snap_num,part_type,field_list)
+        posp=gas_particles['Coordinates']
+        mu=(4.*mp/(1.+3.*Xh+4.*Xh*gas_particles['ElectronAbundance'])) #CGS
+        val=gas_particles['InternalEnergy']*mu*(gamma-1.)/kb #K*(km/cm)^2, mult by 10^10 later
+        vals.append(val)
+        volweight.append(False)
+        weights.append(gas_particles['Masses'])
+    elif p=='metals_emm':
+        print("Computing values for emission-measure-weighted metallicity (metals_emm)")
+        part_type='gas'
+        if sim=='IllustrisTNG':
+            field_list=['GFM_Metallicity','Masses','Coordinates']
+            gas_particles=istk.io.getparticles(snap_num,part_type,field_list)
+            posp=gas_particles['Coordinates']
+            val=gas_particles['GFM_Metallicity'] #ratio
+        elif sim=='SIMBA': 
+            field_list=['Metallicity','Masses','Coordinates']
+            gas_particles=istk.io.getparticles(snap_num,part_type,field_list)
+            posp=gas_particles['Coordinates']
+            val=gas_particles['Metallicity']  
+            val=val[:,0]
+        vals.append(val)
+        volweight.append(False)
+        weights.append(1.0+0*val)
+    elif p=='gastemp_emm':
+        print("Computing values for emission measure-weighted gas temperature (gastemp_emm)")
+        part_type='gas'
+        field_list=['Coordinates','Masses','InternalEnergy','ElectronAbundance']
+        gas_particles=istk.io.getparticles(snap_num,part_type,field_list)
+        posp=gas_particles['Coordinates']
+        mu=(4.*mp/(1.+3.*Xh+4.*Xh*gas_particles['ElectronAbundance'])) #CGS
+        val=gas_particles['InternalEnergy']*mu*(gamma-1.)/kb #K*(km/cm)^2, mult by 10^10 later
+        vals.append(val)
+        volweight.append(False)
+        weights.append(1.0+0*val)
     else:
         print("Please enter an appropriate option for the profile")
-        print("gasdens,dmdens,gaspth,metals_gmw,gasmass,gastemp_gmw")
+        print("gasdens,gaspth,metals_uw,metals_gmw,gasmass,gastemp_uw,gastemp_gmw,metals_emm,gastemp_emm")
 
 field_list = ['GroupBHMass','GroupBHMdot','GroupFirstSub','GroupGasMetalFractions','GroupGasMetallicity','GroupLen','GroupMass','GroupMassType','GroupNsubs','GroupPos','GroupSFR','GroupStarMetalFractions','GroupStarMetallicity','GroupVel','GroupWindMass','Group_M_Crit200','Group_M_Crit500','Group_M_Mean200','Group_M_TopHat200','Group_R_Crit200','Group_R_Crit500','Group_R_Mean200','Group_R_TopHat200']
 #units=[1e10 Msol/h,1e10 (Msol/h)/(0.978 Gyr/h),index,ratio of total mass of species/total gas mass,metallicity,count,1e10 Msol/h, 1e10 Msol/h, count, ckpc/h, Msol/yr, fraction, metallicity, (km/s)/a (get peculiar velocity by multiplying this by 1/a),1e10 Msol/h, 1e10 Msol/h, 1e10 Msol/h, 1e10 Msol/h, 1e10 Msol/h, ckpc/h, ckpc/h, ckpc/h, ckpc/h]

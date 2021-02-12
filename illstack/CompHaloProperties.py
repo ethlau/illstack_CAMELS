@@ -34,18 +34,33 @@ class CompHaloProp:
             rad=rad
             Volume = 4.*np.pi/3. * (self.r2**3 - self.r1**3)
 
-        data_qw = np.apply_along_axis(lambda x:np.histogram(rad,bins=self.radbins, weights=x*weight),1,quant) #here
-        #data_qw=np.histogram(rad,bins=self.radbins,weights=quant*weight)
-        data_w  = np.histogram(rad, bins=self.radbins, weights=weight)
+        #data_qw = np.apply_along_axis(lambda x:np.histogram(rad,bins=self.radbins, weights=x*weight),1,quant) #2d quant, 1d weight
+        #data_qw=np.histogram(rad,bins=self.radbins,weights=quant*weight) #original
         BinCount = np.histogram(rad, bins=self.radbins)
-        
         BinValue_multi=[]
         for v in np.arange(len(volweight)):
+            quantv=quant[v,:]
+            weightv=weight[v,:]
+            radv=rad
+            if v >= 7: #emission measure-weighted
+                dens_quant=quant[0,:]
+                temp_quant=quant[5,:]*10**10. #convert to K
+                idx_xray=np.where(temp_quant >1.e6)
+                idx_xray=np.array(idx_xray[0])
+                dens_quant,temp_quant,quantv=dens_quant[idx_xray],temp_quant[idx_xray],quant[v,idx_xray]
+                emm=dens_quant**2.
+                weightv=emm
+                radv=rad[idx_xray]
+            data_qw=np.histogram(radv,bins=self.radbins,weights=quantv*weightv)
+            data_w  = np.histogram(radv, bins=self.radbins, weights=weightv)
+            
             if (volweight[v] == True):
-                BinValue = data_qw[v,0] / Volume
+                #BinValue = data_qw[v,0] / Volume
+                BinValue = data_qw[0] / Volume
             else:
                 count = [1 if x==0 else x for x in data_w[0]] #this avoids nan for bins with zero particles, but we shouldn't have zero particles
-                BinValue = data_qw[v,0] / count
+                #BinValue = data_qw[v,0] / count
+                BinValue = data_qw[0] / count
             BinValue_multi.append(BinValue)
         BinValue_multi=np.array(BinValue_multi,dtype='object')
         

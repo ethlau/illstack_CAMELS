@@ -32,7 +32,7 @@ def periodic_bcs(np.ndarray posp,np.ndarray posh):
 
     return posp
 
-def add_ghost_particles(posc,vals_init,maxrad): #this does periodic bcs
+def add_ghost_particles(posc,vals_init,weights_init,maxrad): #this does periodic bcs
     posc_ghosts= posc
     #vals=vals_init[0,:]
     #vals_ghosts=vals
@@ -45,6 +45,8 @@ def add_ghost_particles(posc,vals_init,maxrad): #this does periodic bcs
 
     vals=vals_init
     vals_ghosts=vals
+    weights=weights_init
+    weights_ghosts=weights
     for i in (-1,0,1):
         for j in (-1,0,1):
             for k in (-1,0,1):
@@ -54,16 +56,18 @@ def add_ghost_particles(posc,vals_init,maxrad): #this does periodic bcs
                 yp = posc[:,1] + j*box
                 zp = posc[:,2] + k*box
                 dm = [(xp>x1) & (xp<x2) & (yp>y1) & (yp<y2) & (zp>z1) & (zp<z2)]
-                #print(i,j,k)
+                print(i,j,k)
                 dm=np.array(dm[0])
                 posc_new = np.column_stack([xp[dm], yp[dm],zp[dm]])
                 vals_new = vals[:,dm] #[dm] #here
+                weights_new=weights[:,dm] #here
 
                 posc_ghosts = np.concatenate((posc_ghosts,posc_new))
                 vals_ghosts = np.concatenate((vals_ghosts,vals_new),axis=1)
+                weights_ghosts=np.concatenate((weights_ghosts,weights_new),axis=1)
     #print("vals_ghosts after", np.shape(vals_ghosts))
     print("Finished adding ghost particles for periodic boundary conditions")
-    return posc_ghosts, vals_ghosts
+    return posc_ghosts, vals_ghosts, weights_ghosts
 
 
 def cull_and_center(np.ndarray posp, np.ndarray vals, np.ndarray weights, 
@@ -79,7 +83,7 @@ def cull_and_center(np.ndarray posp, np.ndarray vals, np.ndarray weights,
         r = np.sqrt(xp**2+yp**2+zp**2)
         dm = [r < search_radius * rh]
     dm=np.array(dm[0])
-    xp=xp[dm];yp=yp[dm];zp=zp[dm];vals=vals[:,dm];weights=weights[dm] #vals[dm] #here
+    xp=xp[dm];yp=yp[dm];zp=zp[dm];vals=vals[:,dm];weights=weights[:,dm] #vals[dm];weights[dm] #here
     posp=np.column_stack([xp,yp,zp])
     return posp,vals,weights
 
@@ -135,6 +139,7 @@ def stackonhalostile(
         np.ndarray         mstari,
         it, jt, kt,ntile,
         np.ndarray      volweight, #here
+        np.ndarray        weightsi, #here
         mhmin, mhmax,scaled_radius,mass_kind,
         np.ndarray GroupBHMassi,np.ndarray GroupBHMdoti,
         np.ndarray Group_GasHi,np.ndarray Group_GasHei,np.ndarray Group_GasCi,
@@ -196,8 +201,8 @@ def stackonhalostile(
 
     posp  = np.column_stack([xp,yp,zp])
     posh  = np.column_stack([xh,yh,zh])
-
     vals          = valsi[:,dmp] #[dmp] #here
+    weights       = weightsi[:,dmp] #here
     mh=mhi[dmh]
     rh            = rhi[dmh] 
     GroupFirstSub = GroupFirstSubi[dmh] 
@@ -241,7 +246,7 @@ def stackonhalostile(
 
     pcen = np.empty((0),float)
     pval = np.empty((len(volweight),0),float) #here
-    pnum = np.empty((0),float)
+    pnum = np.empty((len(volweight),0),float) #here
 
     nhalos=np.shape(xh)[0]
     if params.rank==0: #when MPI isn't initialized
@@ -252,7 +257,7 @@ def stackonhalostile(
     
     ninhalos=0
     nphalo = np.zeros(nhalos)
-    weights = 1.0 + 0*xp
+    #weights = 1.0 + 0*xp #now each profile has its own weights
 #    posp, vals, weights = precull(posp,vals,weights,posh,rh)
 
     for ih in np.arange(nhalos):
@@ -261,7 +266,7 @@ def stackonhalostile(
             pcenc, pvalc, pnumc = CHP.ComputeHaloProfile(pospc,valsc,weightsc,scale,volweight=volweight,scaled_radius=scaled_radius)
             pcen = np.append(pcen,pcenc)
             pval = np.append(pval,pvalc,axis=1) #here
-            pnum = np.append(pnum,pnumc)
+            pnum = np.append(pnum,pnumc,axis=1) #here
     return pcen,pval,pnum,mh,rh,nhalos,GroupFirstSub,sfr,mstar,GroupBHMass,GroupBHMdot,Group_GasH,Group_GasHe,Group_GasC,Group_GasN,Group_GasO,Group_GasNe,Group_GasMg,Group_GasSi,Group_GasFe,GroupGasMetallicity,GroupLen,GroupMass,GroupNsubs,Group_StarH,Group_StarHe,Group_StarC,Group_StarN,Group_StarO,Group_StarNe,Group_StarMg,Group_StarSi,Group_StarFe,GroupStarMetallicity,GroupVelx,GroupVely,GroupVelz,GroupWindMass,M_Crit500,M_Mean200,M_TopHat200,R_Crit500,R_Mean200,R_TopHat200
 	
 def stackonhalos(
@@ -275,6 +280,7 @@ def stackonhalos(
         np.ndarray         mstar,
         ntile, 
         np.ndarray     volweight, #here
+        np.ndarray       weights, #here
         mhmin, mhmax,scaled_radius,mass_kind,
         np.ndarray GroupBHMass,np.ndarray GroupBHMdot,
         np.ndarray Group_GasH,np.ndarray Group_GasHe,np.ndarray Group_GasC,
@@ -299,13 +305,13 @@ def stackonhalos(
     rbuff = rpmax*search_radius
     #print("rbuff",rbuff)
     #rbuff=10000.
-
-    posp,vals = add_ghost_particles(posp,vals,rbuff)
+    
+    posp,vals,weights = add_ghost_particles(posp,vals,weights,rbuff)
     
     #these should all be the same for each prof except pval
     pcen = np.empty((0),float)
     pval = np.empty((vals.shape[0],0),float) #here
-    pnum = np.empty((0),float)
+    pnum = np.empty((vals.shape[0],0),float) #here
     mhpr = np.empty((0),float)
     rhpr = np.empty((0),float)
     GroupFirstSubpr=np.empty((0),float)
@@ -336,11 +342,11 @@ def stackonhalos(
         for jt in np.arange(ntile):
             for kt in np.arange(ntile):
 
-                pcenc, pvalc, pnumc,mhc,rhc,nhalosc,GroupFirstSubc,sfrc,mstarc,GroupBHMassc,GroupBHMdotc,Group_GasHc,Group_GasHec,Group_GasCc,Group_GasNc,Group_GasOc,Group_GasNec,Group_GasMgc,Group_GasSic,Group_GasFec,GroupGasMetallicityc,GroupLenc,GroupMassc,GroupNsubsc,Group_StarHc,Group_StarHec,Group_StarCc,Group_StarNc,Group_StarOc,Group_StarNec,Group_StarMgc,Group_StarSic,Group_StarFec,GroupStarMetallicityc,GroupVelxc,GroupVelyc,GroupVelzc,GroupWindMassc,M_Crit500c,M_Mean200c,M_TopHat200c,R_Crit500c,R_Mean200c,R_TopHat200c= stackonhalostile(posp,vals,posh,mh,rh,GroupFirstSub,sfr,mstar,it,jt,kt,ntile,volweight,mhmin,mhmax,scaled_radius,mass_kind,GroupBHMass,GroupBHMdot,Group_GasH,Group_GasHe,Group_GasC,Group_GasN,Group_GasO,Group_GasNe,Group_GasMg,Group_GasSi,Group_GasFe,GroupGasMetallicity,GroupLen,GroupMass,GroupNsubs,Group_StarH,Group_StarHe,Group_StarC,Group_StarN,Group_StarO,Group_StarNe,Group_StarMg,Group_StarSi,Group_StarFe,GroupStarMetallicity,GroupVelx,GroupVely,GroupVelz,GroupWindMass,M_Crit500,M_Mean200,M_TopHat200,R_Crit500,R_Mean200,R_TopHat200)   
+                pcenc, pvalc, pnumc,mhc,rhc,nhalosc,GroupFirstSubc,sfrc,mstarc,GroupBHMassc,GroupBHMdotc,Group_GasHc,Group_GasHec,Group_GasCc,Group_GasNc,Group_GasOc,Group_GasNec,Group_GasMgc,Group_GasSic,Group_GasFec,GroupGasMetallicityc,GroupLenc,GroupMassc,GroupNsubsc,Group_StarHc,Group_StarHec,Group_StarCc,Group_StarNc,Group_StarOc,Group_StarNec,Group_StarMgc,Group_StarSic,Group_StarFec,GroupStarMetallicityc,GroupVelxc,GroupVelyc,GroupVelzc,GroupWindMassc,M_Crit500c,M_Mean200c,M_TopHat200c,R_Crit500c,R_Mean200c,R_TopHat200c= stackonhalostile(posp,vals,posh,mh,rh,GroupFirstSub,sfr,mstar,it,jt,kt,ntile,volweight,weights,mhmin,mhmax,scaled_radius,mass_kind,GroupBHMass,GroupBHMdot,Group_GasH,Group_GasHe,Group_GasC,Group_GasN,Group_GasO,Group_GasNe,Group_GasMg,Group_GasSi,Group_GasFe,GroupGasMetallicity,GroupLen,GroupMass,GroupNsubs,Group_StarH,Group_StarHe,Group_StarC,Group_StarN,Group_StarO,Group_StarNe,Group_StarMg,Group_StarSi,Group_StarFe,GroupStarMetallicity,GroupVelx,GroupVely,GroupVelz,GroupWindMass,M_Crit500,M_Mean200,M_TopHat200,R_Crit500,R_Mean200,R_TopHat200)   
 
                 pcen=np.append(pcen,pcenc)
                 pval=np.append(pval,pvalc,axis=1) #here
-                pnum=np.append(pnum,pnumc)
+                pnum=np.append(pnum,pnumc,axis=1) #here
                 mhpr=np.append(mhpr,  mhc)
                 rhpr=np.append(rhpr,  rhc)
                 GroupFirstSubpr=np.append(GroupFirstSubpr, GroupFirstSubc)

@@ -36,8 +36,10 @@ class CompHaloProp:
 
         #data_qw = np.apply_along_axis(lambda x:np.histogram(rad,bins=self.radbins, weights=x*weight),1,quant) #2d quant, 1d weight
         #data_qw=np.histogram(rad,bins=self.radbins,weights=quant*weight) #original
-        BinCount = np.histogram(rad, bins=self.radbins)
+        #BinCount = np.histogram(rad, bins=self.radbins)
+        
         BinValue_multi=[]
+        BinCount_multi=[]
         for v in np.arange(len(volweight)):
             quantv=quant[v,:]
             weightv=weight[v,:]
@@ -51,6 +53,7 @@ class CompHaloProp:
                 emm=dens_quant**2.
                 weightv=emm
                 radv=rad[idx_xray]
+            BinCount = np.histogram(radv, bins=self.radbins)
             data_qw=np.histogram(radv,bins=self.radbins,weights=quantv*weightv)
             data_w  = np.histogram(radv, bins=self.radbins, weights=weightv)
             
@@ -62,7 +65,9 @@ class CompHaloProp:
                 #BinValue = data_qw[v,0] / count
                 BinValue = data_qw[0] / count
             BinValue_multi.append(BinValue)
+            BinCount_multi.append(BinCount[0])
         BinValue_multi=np.array(BinValue_multi,dtype='object')
+        BinCount_multi=np.array(BinCount_multi,dtype='object')
         
         
         
@@ -77,7 +82,7 @@ class CompHaloProp:
             else:
                 BinValue[0] += data_qw_inner[0] / data_w_inner[0]
 
-        return self.BinCenter, np.nan_to_num(BinValue_multi), BinCount[0] #here
+        return self.BinCenter, np.nan_to_num(BinValue_multi),BinCount_multi #, BinCount[0] #for 1D Bincount (should be same for all except emm vals)
 
     def ComputeCumulativeProfile(self,pos,quant,scale,volweight=False,stddev=False,innerbin=True, scaled_radius=False):
         '''

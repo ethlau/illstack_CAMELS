@@ -206,7 +206,7 @@ for p in prof:
 
         posp=gas_particles['Coordinates']
         mu=(4.*mp/(1.+3.*Xh+4.*Xh*gas_particles['ElectronAbundance'])) #CGS
-        temperature_keV=gas_particles['InternalEnergy']*mu*(gamma-1.)/kb * 1e10 * K_to_keV
+        temperature_keV=gas_particles['InternalEnergy']*mu*(gamma-1.)/kb * 1e10 * k_to_keV
         val = xem.return_interpolated_emissivity( temperature_keV,  metal/Zsun )
         vals.append(val)
         volweight.append(False)

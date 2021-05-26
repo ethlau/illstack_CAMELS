@@ -7,8 +7,10 @@ import illstack as istk
 import mpi4py.rc
 from decimal import Decimal
 import istk_params as params
+import xray_emissivity
 
 istk.init.initialize('istk_params.py')
+
 
 prof1 = str(sys.argv[1])
 prof2 = str(sys.argv[2])
@@ -19,9 +21,10 @@ prof6 = str(sys.argv[6])
 prof7 = str(sys.argv[7])
 prof8 = str(sys.argv[8])
 prof9 = str(sys.argv[9])
-snap_num= int(sys.argv[10])
-sim=str(sys.argv[11])
-simulation=str(sys.argv[12])
+prof10 = str(sys.argv[10])
+snap_num= int(sys.argv[11])
+sim=str(sys.argv[12])
+simulation=str(sys.argv[13])
 
 red_dict={'000':6.0,'001':5.0,'002':4.0,'003':3.5,'004':3.0,'005':2.81329,'006':2.63529,'007':2.46560,'008':2.30383,'009':2.14961,'010':2.00259,'011':1.86243,'012':1.72882,'013':1.60144,'014':1.48001,'015':1.36424,'016':1.25388,'017':1.14868,'018':1.04838,'019':0.95276,'020':0.86161,'021':0.77471,'022':0.69187,'023':0.61290,'024':0.53761,'025':0.46584,'026':0.39741,'027':0.33218,'028':0.27,'029':0.21072,'030':0.15420,'031':0.10033,'032':0.04896,'033':0.0}
 z=red_dict[sys.argv[10]]
@@ -43,11 +46,29 @@ Xh=0.76
 mp=1.67e-24 #g
 gamma=5./3.
 kb=1.38e-16 #g*cm^2/s^2/K
+k_to_keV = 8.6173e-08
+Msun = 1.989e33 #solar mass in in g
+kpc = 3.0856e21 #kpc in cm
+dens_conversion = Msun / kpc**3
+Zsun = 0.0127 
+
+xem = XrayEmissivity()
+xem.read_emissivity_table("etable_erosita.hdf5") 
 
 #prof=[prof1,prof2,prof3,prof4,prof5,prof6,prof7,prof8,prof9]
 #prof=[prof1,prof2,prof3,prof4,prof5,prof6,prof7]
 #prof=[prof1,prof2]
-prof=[prof1,prof2,prof4,prof7] #for batch runs
+#prof1='gasdens'
+#prof2='gaspth'
+#prof3='metals_uw'
+#prof4='metals_gmw' #gas mass weighted
+#prof5='gasmass'
+#prof6='gastemp_uw'
+#prof7='gastemp_gmw'
+#prof8='metals_emm'
+#prof9='gastemp_emm'
+#prof10='xray_lambda'
+prof=[prof1,prof2,prof4,prof7,prof10] #for batch runs
 
 volweight=[]
 vals=[]
@@ -169,9 +190,31 @@ for p in prof:
         vals.append(val)
         volweight.append(False)
         weights.append(1.0+0*val)
+
+    elif p=='xray_lambda':
+        print("Computing xray_lambda")
+        part_type='gas'
+
+        if sim=='IllustrisTNG':
+            field_list=['GFM_Metallicity','Masses','Coordinates','InternalEnergy','ElectronAbundance']]
+            gas_particles=istk.io.getparticles(snap_num,part_type,field_list)
+            metal=gas_particles['GFM_Metallicity'] #ratio
+        elif sim=='SIMBA': 
+            field_list=['Metallicity','Masses','Coordinates','InternalEnergy','ElectronAbundance']]
+            gas_particles=istk.io.getparticles(snap_num,part_type,field_list)
+            metal=gas_particles['Metallicity']
+
+        posp=gas_particles['Coordinates']
+        mu=(4.*mp/(1.+3.*Xh+4.*Xh*gas_particles['ElectronAbundance'])) #CGS
+        temperature_keV=gas_particles['InternalEnergy']*mu*(gamma-1.)/kb * 1e10 * K_to_keV
+        val = xem.return_interpolated_emissivity( temperature_keV,  metal/Zsun )
+        vals.append(val)
+        volweight.append(False)
+        weights.append(1.0+0*val)
+
     else:
         print("Please enter an appropriate option for the profile")
-        print("gasdens,gaspth,metals_uw,metals_gmw,gasmass,gastemp_uw,gastemp_gmw,metals_emm,gastemp_emm")
+        print("gasdens,gaspth,metals_uw,metals_gmw,gasmass,gastemp_uw,gastemp_gmw,metals_emm,gastemp_emm,xray_lambda")
 
 field_list = ['GroupBHMass','GroupBHMdot','GroupFirstSub','GroupGasMetalFractions','GroupGasMetallicity','GroupLen','GroupMass','GroupMassType','GroupNsubs','GroupPos','GroupSFR','GroupStarMetalFractions','GroupStarMetallicity','GroupVel','GroupWindMass','Group_M_Crit200','Group_M_Crit500','Group_M_Mean200','Group_M_TopHat200','Group_R_Crit200','Group_R_Crit500','Group_R_Mean200','Group_R_TopHat200']
 #units=[1e10 Msol/h,1e10 (Msol/h)/(0.978 Gyr/h),index,ratio of total mass of species/total gas mass,metallicity,count,1e10 Msol/h, 1e10 Msol/h, count, ckpc/h, Msol/yr, fraction, metallicity, (km/s)/a (get peculiar velocity by multiplying this by 1/a),1e10 Msol/h, 1e10 Msol/h, 1e10 Msol/h, 1e10 Msol/h, 1e10 Msol/h, ckpc/h, ckpc/h, ckpc/h, ckpc/h]

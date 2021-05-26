@@ -196,11 +196,11 @@ for p in prof:
         part_type='gas'
 
         if sim=='IllustrisTNG':
-            field_list=['GFM_Metallicity','Masses','Coordinates','InternalEnergy','ElectronAbundance']]
+            field_list=['GFM_Metallicity','Masses','Coordinates','InternalEnergy','ElectronAbundance']
             gas_particles=istk.io.getparticles(snap_num,part_type,field_list)
             metal=gas_particles['GFM_Metallicity'] #ratio
         elif sim=='SIMBA': 
-            field_list=['Metallicity','Masses','Coordinates','InternalEnergy','ElectronAbundance']]
+            field_list=['Metallicity','Masses','Coordinates','InternalEnergy','ElectronAbundance']
             gas_particles=istk.io.getparticles(snap_num,part_type,field_list)
             metal=gas_particles['Metallicity']
 

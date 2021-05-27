@@ -18,3 +18,13 @@ Foundation scripts-
 
 Example scripts-
 /home/jovyan/home/illstack/CAMELS_example/
+
+---
+
+Added by Erwin:
+
+Require installation of PyAtomDB:
+
+pip install pyatomdb
+
+Set enviroment variable $ATOMDB to the location where the atomdb files are stored.
